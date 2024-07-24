@@ -6,8 +6,8 @@ Este projeto é uma API para gerenciar informações dos prêmios Golden Raspber
 
 ## Pré-requisitos
 
-* Java: 11 ou superior
-* Maven: 3.6.0 ou superior
+* Java: 21 ou superior
+* Maven: 3.9.5 ou superior
 
 ## Estrutura do Projeto
 
