@@ -1,5 +1,6 @@
 package com.goldenraspberryawards.service;
 
+import com.goldenraspberryawards.exception.MovieNotFoundException;
 import com.goldenraspberryawards.model.Movie;
 import com.goldenraspberryawards.model.MovieProducerPrizeInterval;
 import com.goldenraspberryawards.repository.MovieRepository;
@@ -102,8 +103,8 @@ public class MovieService {
         return movieRepository.findAll();
     }
 
-    public Movie getMovieById(Long id) {
-        return movieRepository.findById(id).orElse(null);
+    public Optional<Movie> getMovieById(Long id) {
+        return movieRepository.findById(id);
     }
 
     public Movie createMovie(Movie movie) {

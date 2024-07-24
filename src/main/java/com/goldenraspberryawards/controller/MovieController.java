@@ -1,5 +1,6 @@
 package com.goldenraspberryawards.controller;
 
+import com.goldenraspberryawards.exception.MovieNotFoundException;
 import com.goldenraspberryawards.model.Movie;
 import com.goldenraspberryawards.model.MovieProducerPrizeInterval;
 import com.goldenraspberryawards.service.MovieService;
@@ -37,8 +38,9 @@ public class MovieController {
 
     @GetMapping("/{id}")
     public ResponseEntity<Movie> getMovieById(@PathVariable Long id) {
-        Movie movie = movieService.getMovieById(id);
-        return movie != null ? ResponseEntity.ok(movie) : ResponseEntity.notFound().build();
+        Movie movie = movieService.getMovieById(id)
+                .orElseThrow(() -> new MovieNotFoundException("Não foi possível encontrato o filme com o ID " + id));
+        return ResponseEntity.ok(movie);
     }
 
     @PostMapping("/create")
