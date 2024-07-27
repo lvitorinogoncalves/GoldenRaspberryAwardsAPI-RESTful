@@ -24,4 +24,12 @@ public class Movie {
     @Column(name = "release_year")
     private Integer year;
     private boolean winner;
+
+    public Movie(String title, String studio, String producer, int year, boolean winner) {
+        this.title = title;
+        this.studio = studio;
+        this.producer = producer;
+        this.year = year;
+        this.winner = winner;
+    }
 }

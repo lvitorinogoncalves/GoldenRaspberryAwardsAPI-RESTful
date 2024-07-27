@@ -1,6 +1,5 @@
 package com.goldenraspberryawards.service;
 
-import com.goldenraspberryawards.exception.MovieNotFoundException;
 import com.goldenraspberryawards.model.Movie;
 import com.goldenraspberryawards.model.MovieProducerPrizeInterval;
 import com.goldenraspberryawards.repository.MovieRepository;
@@ -9,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Service
 public class MovieService {
@@ -74,29 +74,29 @@ public class MovieService {
                 .collect(Collectors.toList());
     }
 
-    private List<MovieProducerPrizeInterval> createProducerPrizeIntervals(List<Movie> movies) {
-        return movies.stream()
-                .collect(Collectors.groupingBy(Movie::getProducer))
-                .entrySet().stream()
-                .map(entry -> {
-                    String producer = entry.getKey();
-                    List<Movie> sortedMovies = entry.getValue().stream()
-                            .sorted(Comparator.comparingInt(Movie::getYear))
-                            .collect(Collectors.toList());
+    public List<MovieProducerPrizeInterval> createProducerPrizeIntervals(List<Movie> movies) {
+        List<MovieProducerPrizeInterval> intervals = new ArrayList<>();
 
-                    OptionalInt minYearOpt = sortedMovies.stream().mapToInt(Movie::getYear).findFirst();
-                    OptionalInt maxYearOpt = sortedMovies.stream().mapToInt(Movie::getYear).reduce((first, last) -> last);
+        Map<String, List<Movie>> moviesByProducer = movies.stream()
+                .collect(Collectors.groupingBy(Movie::getProducer));
 
-                    if (minYearOpt.isPresent() && maxYearOpt.isPresent() && minYearOpt.getAsInt() != maxYearOpt.getAsInt()) {
-                        int minYear = minYearOpt.getAsInt();
-                        int maxYear = maxYearOpt.getAsInt();
-                        return new MovieProducerPrizeInterval(producer, minYear, maxYear);
-                    }
+        moviesByProducer.forEach((producer, producerMovies) -> {
+            List<Integer> sortedYears = producerMovies.stream()
+                    .map(Movie::getYear)
+                    .sorted()
+                    .toList();
 
-                    return null;
-                })
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+            intervals.addAll(createIntervals(producer, sortedYears));
+        });
+
+        return intervals;
+    }
+
+    private List<MovieProducerPrizeInterval> createIntervals(String producer, List<Integer> sortedYears) {
+        return (sortedYears.size() < 2) ? List.of() :
+                IntStream.range(1, sortedYears.size())
+                        .mapToObj(i -> new MovieProducerPrizeInterval(producer, sortedYears.get(i - 1), sortedYears.get(i)))
+                        .toList();
     }
 
     public List<Movie> getAllMovies() {

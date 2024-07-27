@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.goldenraspberryawards.model.Movie;
 import com.goldenraspberryawards.service.MovieService;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -12,7 +14,6 @@ import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,46 +36,15 @@ public class MovieControllerIntegrationTest {
     @BeforeEach
     public void setup() {
         initializeMovieList();
-        setupMovieServiceMocks();
     }
 
     private void initializeMovieList() {
-        movieList = new ArrayList<>();
-        movieList.add(new Movie(1L, "Movie 1", "Studio 1", "Producer 1", 2000, false));
-        movieList.add(new Movie(2L, "Movie 2", "Studio 2", "Producer 2", 2005, true));
-        movieList.add(new Movie(3L, "Movie 2", "Studio 3", "Producer 2", 2010, true));
-        movieList.add(new Movie(4L, "Movie 3", "Studio 3", "Producer 3, Producer 2 and Producer 1", 2015, true));
-        movieList.add(new Movie(5L, "Movie 3", "Studio 3", "Producer 3", 2010, true));
-        movieList.add(new Movie(6L, "Movie 3", "Studio 3", "Producer 3", 2000, false));
-    }
-
-    private void setupMovieServiceMocks() {
-        doReturn(movieList).when(movieService).getAllMovies();
-        doAnswer(invocation -> findMovieById(invocation.getArgument(0))).when(movieService).getMovieById(anyLong());
-        doAnswer(invocation -> addMovie(invocation.getArgument(0))).when(movieService).createMovie(any(Movie.class));
-        doAnswer(invocation -> updateMovie(invocation.getArgument(0), invocation.getArgument(1))).when(movieService).updateMovie(anyLong(), any(Movie.class));
-        doAnswer(invocation -> deleteMovie(invocation.getArgument(0))).when(movieService).deleteMovie(anyLong());
-    }
-
-    private Optional<Movie> findMovieById(Long id) {
-        return movieList.stream().filter(movie -> movie.getId().equals(id)).findFirst();
-    }
-
-    private Movie addMovie(Movie movie) {
-        movieList.add(movie);
-        return movie;
-    }
-
-    private Movie updateMovie(Long id, Movie updatedMovie) {
-        movieList.replaceAll(movie -> movie.getId().equals(id) ? updatedMovie : movie);
-        return updatedMovie;
-    }
-
-    private boolean deleteMovie(Long id) {
-        return movieList.removeIf(movie -> movie.getId().equals(id));
+        movieList = movieService.getAllMovies();
+        Mockito.reset(movieService);
     }
 
     @Test
+    @Order(1)
     public void testGetAllMovies() throws Exception {
         mockMvc.perform(get("/api/movies/all"))
                 .andExpect(status().isOk())
@@ -84,6 +54,7 @@ public class MovieControllerIntegrationTest {
     }
 
     @Test
+    @Order(2)
     public void testGetMovieById() throws Exception {
         Movie movie = movieList.get(0);
 
@@ -96,8 +67,9 @@ public class MovieControllerIntegrationTest {
     }
 
     @Test
+    @Order(3)
     public void testCreateMovie() throws Exception {
-        Movie movie = new Movie(4L, "Test Movie", "Test Studio", "Test Producer", 2020, true);
+        Movie movie = new Movie(9999L, "Test Movie", "Test Studio", "Test Producer", 2020, true);
 
         mockMvc.perform(post("/api/movies/create")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -113,8 +85,9 @@ public class MovieControllerIntegrationTest {
     }
 
     @Test
+    @Order(4)
     public void testUpdateMovie() throws Exception {
-        Movie movie = movieList.get(0);
+        Movie movie = movieList.get(movieList.size() - 1);
         Movie updatedMovie = new Movie(movie.getId(), "Updated Movie", "Updated Studio", "Updated Producer", 2021, false);
 
         mockMvc.perform(put("/api/movies/" + movie.getId())
@@ -131,8 +104,9 @@ public class MovieControllerIntegrationTest {
     }
 
     @Test
+    @Order(5)
     public void testDeleteMovie() throws Exception {
-        Movie movie = movieList.get(0);
+        Movie movie = movieList.get(movieList.size() - 1);
 
         mockMvc.perform(delete("/api/movies/" + movie.getId()))
                 .andExpect(status().isNoContent())
@@ -142,10 +116,21 @@ public class MovieControllerIntegrationTest {
     }
 
     @Test
+    @Order(6)
     public void testGetMoviesWithPrizeIntervals() throws Exception {
         mockMvc.perform(get("/api/movies/producers-prize-intervals"))
                 .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON));
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.min").isArray())
+                .andExpect(jsonPath("$.min[0].producer").value("Joel Silver"))
+                .andExpect(jsonPath("$.min[0].interval").value(1))
+                .andExpect(jsonPath("$.min[0].previousWin").value(1990))
+                .andExpect(jsonPath("$.min[0].followingWin").value(1991))
+                .andExpect(jsonPath("$.max").isArray())
+                .andExpect(jsonPath("$.max[0].producer").value("Matthew Vaughn"))
+                .andExpect(jsonPath("$.max[0].interval").value(13))
+                .andExpect(jsonPath("$.max[0].previousWin").value(2002))
+                .andExpect(jsonPath("$.max[0].followingWin").value(2015));
 
         verify(movieService, times(1)).getMoviesWithPrizeIntervals();
     }

@@ -10,10 +10,9 @@ import org.springframework.context.annotation.Configuration;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Configuration
 public class LoadDatabase {
@@ -24,19 +23,15 @@ public class LoadDatabase {
     private static final String PRODUCERS_HEADER = "producers";
     private static final String YEAR_HEADER = "year";
     private static final String WINNER_HEADER = "winner";
+
     @Autowired
     private MovieRepository movieRepository;
 
     @Bean
     CommandLineRunner initDatabase() {
         return args -> {
-            try (BufferedReader br = new BufferedReader(new FileReader(FILE_NAME_CSV))) {
-                ArrayList<String> lines = new ArrayList<>();
-                String line;
-
-                while ((line = br.readLine()) != null) {
-                    lines.add(line);
-                }
+            try (BufferedReader bufferedReader = new BufferedReader(new FileReader(FILE_NAME_CSV))) {
+                List<String> lines = bufferedReader.lines().collect(Collectors.toList());
 
                 if (lines.isEmpty()) {
                     return;
@@ -45,10 +40,11 @@ public class LoadDatabase {
                 String[] headerLine = {YEAR_HEADER, TITLE_HEADER, STUDIO_HEADER, PRODUCERS_HEADER, WINNER_HEADER};
                 Map<String, Integer> headerMap = createHeaderMap(headerLine);
 
-                for (int i = 1; i < lines.size(); i++) {
-                    Movie movie = createMovieFromline(lines.get(i), headerMap);
-                    movieRepository.save(movie);
-                }
+                lines.stream()
+                        .skip(1)
+                        .map(line -> createMovieFromLine(line, headerMap))
+                        .forEach(movieRepository::save);
+
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -56,32 +52,29 @@ public class LoadDatabase {
     }
 
     private Map<String, Integer> createHeaderMap(String[] headers) {
-        Map<String, Integer> headerMap = new HashMap<>();
-        for (int i = 0; i < headers.length; i++) {
-            headerMap.put(headers[i].trim().toLowerCase(), i);
-        }
-        return headerMap;
+        return Map.of(
+                YEAR_HEADER.toLowerCase(), 0,
+                TITLE_HEADER.toLowerCase(), 1,
+                STUDIO_HEADER.toLowerCase(), 2,
+                PRODUCERS_HEADER.toLowerCase(), 3,
+                WINNER_HEADER.toLowerCase(), 4
+        );
     }
 
-    private Movie createMovieFromline(String line, Map<String, Integer> headerMap) {
-        Movie movie = new Movie();
+    private Movie createMovieFromLine(String line, Map<String, Integer> headerMap) {
         String[] datasets = line.split(";");
-
-        movie.setTitle(getValue(datasets, headerMap, TITLE_HEADER));
-        movie.setStudio(getValue(datasets, headerMap, STUDIO_HEADER));
-        movie.setProducer(getValue(datasets, headerMap, PRODUCERS_HEADER));
-        movie.setYear(parseYear(getValue(datasets, headerMap, YEAR_HEADER)));
-        movie.setWinner(parseWinner(getValue(datasets, headerMap, WINNER_HEADER)));
-
-        return movie;
+        return new Movie(
+                getValue(datasets, headerMap, TITLE_HEADER),
+                getValue(datasets, headerMap, STUDIO_HEADER),
+                getValue(datasets, headerMap, PRODUCERS_HEADER),
+                parseYear(getValue(datasets, headerMap, YEAR_HEADER)),
+                parseWinner(getValue(datasets, headerMap, WINNER_HEADER))
+        );
     }
 
     private String getValue(String[] datasets, Map<String, Integer> headerMap, String header) {
-        Integer index = headerMap.get(header);
-        if (index != null && index < datasets.length) {
-            return datasets[index].trim();
-        }
-        return "";
+        Integer index = headerMap.get(header.toLowerCase());
+        return index != null && index < datasets.length ? datasets[index].trim() : "";
     }
 
     private int parseYear(String yearValue) {
